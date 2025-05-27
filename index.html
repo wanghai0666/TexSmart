@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TexSmart 文档处理器</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <style>
+        :root {
+            --primary-color: #2196F3;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', system-ui;
+            background: var(--bg-color);
+            overflow-x: hidden; /* 防止横向滚动条 */
+        }
+
+        .header {
+            text-align: center;
+            margin: 20px 0 30px;
+            font-size: 2em;
+            color: var(--primary-color);
+            letter-spacing: 1px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(240px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            padding: 16px;
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h3 {
+            color: var(--primary-color);
+            margin: 0 0 12px 0;
+            font-size: 1em;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .time-display {
+            font-size: 0.7em;
+            color: #666;
+        }
+
+        textarea, .output {
+            flex: 1;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid  blue; /* 调整边线 */
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.5;
+            background: var(--card-bg);
+            resize: none;
+            overflow-y: auto;
+            box-sizing: border-box; /* 确保内边距和边框包含在宽度内 */
+        }
+
+        .output {
+            white-space: pre-wrap;
+            font-family: Consolas, monospace;
+        }
+
+        .katex {
+            display: inline-block;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        .copy-btn, .clear-btn {
+            float: right;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .no-marker {
+            color: red;
+            font-weight: bold;
+        }
+
+        .user-tag {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .card {
+                height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">TexSmart 文档处理器</div>
+    
+    <div class="container">
+        <div class="card">
+            <h3>输入区域 <button class="clear-btn" onclick="clearInput()"><i class="fa-solid fa-trash"></i> 清空</button></h3>
+            <textarea id="input" placeholder="请输入您想处理的文档内容" style="height: calc(100% - 40px);"></textarea> <!-- 调整输入区域大小 -->
+        </div>
+        <div class="card">
+            <h3>处理结果 <button class="copy-btn" onclick="copyProcessed()"><i class="fa-solid fa-copy"></i> 复制</button></h3>
+            <div class="output" id="processed"></div>
+        </div>
+        <div class="card">
+            <h3>文档预览 <span class="time-display" id="current-time"></span></h3>
+            <div class="output" id="preview"></div>
+        </div>
+    </div>
+    
+    <div class="user-tag">软件使用人：WangHai</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.7.2/js/all.min.js"></script>
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString(); // 只显示时分秒
+            document.getElementById('current-time').textContent = timeString;
+        }
+
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        function processText(text) {
+            // 保存数学环境的映射
+            const mathEnvMap = new Map();
+            let envId = 0;
+            
+            // 保存$...$内联公式
+            text = text.replace(/\$([^$]+)\$/g, (match) => {
+                const envKey = `__MATH_ENV_${envId++}__`;
+                mathEnvMap.set(envKey, match);
+                return envKey;
+            });
+            
+            // 保存$$...$$行间公式
+            text = text.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+                const envKey = `__MATH_ENV_${envId++}__`;
+                mathEnvMap.set(envKey, match);
+                return envKey;
+            });
+            
+            // 识别并保存cases环境
+            text = text.replace(/\\begin{cases}([\s\S]*?)\\end{cases}/g, (match) => {
+                const envKey = `__MATH_ENV_${envId++}__`;
+                mathEnvMap.set(envKey, match);
+                return envKey;
+            });
+            
+            // 识别并保存array环境
+            text = text.replace(/\\left\\{\\s*\\begin{array}([\s\S]*?)\\end{array}\\s*\\right\\}/g, (match) => {
+                const envKey = `__MATH_ENV_${envId++}__`;
+                mathEnvMap.set(envKey, match);
+                return envKey;
+            });
+            
+            // 识别并保存align环境
+            text = text.replace(/\\begin{align}([\s\S]*?)\\end{align}/g, (match) => {
+                const envKey = `__MATH_ENV_${envId++}__`;
+                mathEnvMap.set(envKey, match);
+                return envKey;
+            });
+            
+            // 处理例题编号（改为红色No.）
+            let ltCount = 1;
+            text = text.replace(/<lt>.*?<\/lt>/gi, () => `<span class="no-marker">No.${ltCount++}</span>、`);
+
+            // 删除tooltip内容
+            text = text.replace(/<span class="tooltiptext">[\s\S]*?<\/span>/g, '');
+            text = text.replace(/<span class="tooltip">([\s\S]*?)<\/span>/g, '$1');
+
+            // 汉字与公式间距（仅处理非数学环境部分）
+            text = text.replace(/([\u4e00-\u9fa5])(?=__MATH_ENV_)/g, '$1 ');
+            text = text.replace(/(?<=__MATH_ENV_)([\u4e00-\u9fa5])/g, ' $1');
+            
+            // 在数学表达式中小于号 < 或者 大于号 > 的两端都添加一个空格
+            mathEnvMap.forEach((value, key) => {
+                value = value.replace(/([^ ])(<|>)([^ ])/g, '$1 $2 $3');
+                mathEnvMap.set(key, value);
+            });
+            
+            // 恢复数学环境
+            mathEnvMap.forEach((value, key) => {
+                text = text.replace(key, value);
+            });
+
+            return text;
+        }
+
+        function renderPreview(text) {
+            const preview = document.getElementById('preview');
+            preview.innerHTML = text.split('\n').map(line => {
+                if (line.trim() === '') return '<br>';
+                return line.replace(/\$([^$]+)\$/g, (_, math) => {
+                    try {
+                        return katex.renderToString(math, {
+                            throwOnError: false,
+                            displayMode: false
+                        });
+                    } catch {
+                        return math;
+                    }
+                }).replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+                    try {
+                        return katex.renderToString(math, {
+                            throwOnError: false,
+                            displayMode: true
+                        });
+                    } catch {
+                        return math;
+                    }
+                });
+            }).join('\n');
+        }
+
+        function copyProcessed() {
+            const text = document.getElementById('processed').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('内容已复制到剪贴板');
+            });
+        }
+
+        function clearInput() {
+            document.getElementById('input').value = '';
+            document.getElementById('processed').textContent = '';
+            document.getElementById('preview').innerHTML = '';
+        }
+
+        document.getElementById('input').addEventListener('input', function(e) {
+            const processed = processText(e.target.value);
+            document.getElementById('processed').textContent = processed;
+            renderPreview(processed);
+        });
+    </script>
+</body>
+</html>
