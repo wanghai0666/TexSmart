@@ -97,11 +97,6 @@
             font-size: 0.9em;
         }
 
-        .no-marker {
-            color: red;
-            font-weight: bold;
-        }
-
         .user-tag {
             position: fixed;
             bottom: 10px;
@@ -192,9 +187,9 @@
                 return envKey;
             });
             
-            // 处理例题编号（改为红色No.）
+            // 处理例题编号
             let ltCount = 1;
-            text = text.replace(/<lt>.*?<\/lt>/gi, () => `<span class="no-marker">No.${ltCount++}</span>、`);
+            text = text.replace(/<lt>.*?<\/lt>/gi, () => `No.${ltCount++}、`);
 
             // 删除tooltip内容
             text = text.replace(/<span class="tooltiptext">[\s\S]*?<\/span>/g, '');
