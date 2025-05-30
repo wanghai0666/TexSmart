@@ -200,7 +200,8 @@
             
             // 删除选择题题支内容
             text = text.replace(/<div class="XZXX">([\s\S]*?)</div>/g, '$1');
-            text = text.replace(/<div class="XZXX" >([\s\S]*?)</div>/g, '$1');        
+            text = text.replace(/<div class="XZXX" >([\s\S]*?)</div>/g, '$1');
+            text = text.replace(/<div class="XZXX"  >([\s\S]*?)</div>/g, '$1'); 
 
             // 汉字与公式间距（仅处理非数学环境部分）
             text = text.replace(/([\u4e00-\u9fa5])(?=__MATH_ENV_)/g, '$1 ');
