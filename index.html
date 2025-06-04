@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>TexSmart 文档处理器</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -12,17 +13,16 @@
 
         body {
             margin: 0;
-            padding: 20px;
+            padding: 10px 20px 20px;
             font-family: 'Segoe UI', system-ui;
             background: var(--bg-color);
-            overflow-x: hidden; /* 防止横向滚动条 */
-            overflow-y: hidden; /* 防止纵向滚动条 */
+            overflow-x: hidden;
         }
 
         .header {
             text-align: center;
-            margin: 20px 0 30px;
-            font-size: 2em;
+            margin: 10px 0 20px;
+            font-size: 1.8em;
             color: var(--primary-color);
             letter-spacing: 1px;
         }
@@ -61,18 +61,19 @@
             color: #666;
         }
 
-        textarea, .output {
+        textarea,
+        .output {
             flex: 1;
             width: 100%;
             padding: 10px;
-            border: 1px solid  blue; /* 调整边线 */
+            border: 1px solid #ccc;
             border-radius: 4px;
             font-size: 13px;
             line-height: 1.5;
             background: var(--card-bg);
             resize: none;
             overflow-y: auto;
-            box-sizing: border-box; /* 确保内边距和边框包含在宽度内 */
+            box-sizing: border-box;
         }
 
         .output {
@@ -86,8 +87,8 @@
             border-radius: 2px;
         }
 
-        .copy-btn, .clear-btn {
-            float: right;
+        .copy-btn,
+        .clear-btn {
             background: var(--primary-color);
             color: white;
             border: none;
@@ -95,6 +96,12 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 0.9em;
+            display: flex;
+            align-items: center;
+        }
+
+        .fa {
+            margin-right: 5px;
         }
 
         .user-tag {
@@ -105,23 +112,51 @@
             color: #666;
         }
 
+        .function-checkboxes {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .function-checkboxes label {
+            margin-left: 20px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .function-checkboxes input[type="checkbox"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+
         @media (max-width: 1200px) {
             .container {
                 grid-template-columns: 1fr;
             }
+
             .card {
                 height: 50vh;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="header">TexSmart 文档处理器</div>
-    
+    <div class="function-checkboxes">
+        <label><input type="checkbox" id="save-math-env" checked> 保存数学环境</label>
+        <label><input type="checkbox" id="process-examples" checked> 处理例题编号</label>
+        <label><input type="checkbox" id="remove-tooltip" checked> 删除tooltip内容</label>
+        <label><input type="checkbox" id="remove-question" checked> 删除选择题题干内容</label>
+        <label><input type="checkbox" id="adjust-spacing" checked> 调整间距</label>
+    </div>
     <div class="container">
         <div class="card">
             <h3>输入区域 <button class="clear-btn" onclick="clearInput()"><i class="fa-solid fa-trash"></i> 清空</button></h3>
-            <textarea id="input" placeholder="请输入您想处理的文档内容" style="height: calc(100% - 40px);"></textarea> <!-- 调整输入区域大小 -->
+            <textarea id="input" placeholder="请输入您想处理的文档内容"
+                style="height: calc(100% - 40px);"></textarea>
         </div>
         <div class="card">
             <h3>处理结果 <button class="copy-btn" onclick="copyProcessed()"><i class="fa-solid fa-copy"></i> 复制</button></h3>
@@ -132,15 +167,37 @@
             <div class="output" id="preview"></div>
         </div>
     </div>
-    
+
     <div class="user-tag">软件使用人：WangHai</div>
 
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.7.2/js/all.min.js"></script>
     <script>
+        // 初始化处理函数
+        function initProcessing() {
+            // 立即处理一次现有内容
+            processAndRender();
+            
+            // 绑定输入事件
+            document.getElementById('input').addEventListener('input', processAndRender);
+            
+            // 绑定复选框变更事件
+            document.querySelectorAll('.function-checkboxes input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', processAndRender);
+            });
+        }
+
+        function processAndRender() {
+            const inputText = document.getElementById('input').value;
+            const processed = processText(inputText);
+            
+            document.getElementById('processed').textContent = processed;
+            renderPreview(processed);
+        }
+
         function updateTime() {
             const now = new Date();
-            const timeString = now.toLocaleTimeString(); // 只显示时分秒
+            const timeString = now.toLocaleTimeString();
             document.getElementById('current-time').textContent = timeString;
         }
 
@@ -148,71 +205,93 @@
         updateTime();
 
         function processText(text) {
+            const saveMathEnv = document.getElementById('save-math-env').checked;
+            const processExamples = document.getElementById('process-examples').checked;
+            const removeTooltip = document.getElementById('remove-tooltip').checked;
+            const removeQuestion = document.getElementById('remove-question').checked;
+            const adjustSpacing = document.getElementById('adjust-spacing').checked;
+
             // 保存数学环境的映射
             const mathEnvMap = new Map();
             let envId = 0;
-            
-            // 保存$...$内联公式
-            text = text.replace(/\$([^$]+)\$/g, (match) => {
-                const envKey = `__MATH_ENV_${envId++}__`;
-                mathEnvMap.set(envKey, match);
-                return envKey;
-            });
-            
-            // 保存$$...$$行间公式
-            text = text.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
-                const envKey = `__MATH_ENV_${envId++}__`;
-                mathEnvMap.set(envKey, match);
-                return envKey;
-            });
-            
-            // 识别并保存cases环境
-            text = text.replace(/\\begin{cases}([\s\S]*?)\\end{cases}/g, (match) => {
-                const envKey = `__MATH_ENV_${envId++}__`;
-                mathEnvMap.set(envKey, match);
-                return envKey;
-            });
-            
-            // 识别并保存array环境
-            text = text.replace(/\\left\\{\\s*\\begin{array}([\s\S]*?)\\end{array}\\s*\\right\\}/g, (match) => {
-                const envKey = `__MATH_ENV_${envId++}__`;
-                mathEnvMap.set(envKey, match);
-                return envKey;
-            });
-            
-            // 识别并保存align环境
-            text = text.replace(/\\begin{align}([\s\S]*?)\\end{align}/g, (match) => {
-                const envKey = `__MATH_ENV_${envId++}__`;
-                mathEnvMap.set(envKey, match);
-                return envKey;
-            });
-            
-            // 处理例题编号
-            let ltCount = 1;
-            text = text.replace(/<lt>.*?<\/lt>/gi, () => `No.${ltCount++}、`);
 
-            // 删除tooltip内容
-            text = text.replace(/<span class="tooltiptext">[\s\S]*?<\/span>/g, '');
-            text = text.replace(/<span class="tooltip">([\s\S]*?)<\/span>/g, '$1');
+            if (saveMathEnv) {
+                // 保存$...$内联公式
+                text = text.replace(/\$([^$]+)\$/g, (match) => {
+                    const envKey = `__MATH_ENV_${envId++}__`;
+                    mathEnvMap.set(envKey, match);
+                    return envKey;
+                });
 
-           // 删除选择题题干内容
-            text = text.replace(/<span class="xzkh">([\s\S]*?)<\/span>/g, '$1');
-            text = text.replace(/<div class="XZXX">([\s\S]*?)<\/div>/g, '$1'); 
-            
-            // 汉字与公式间距（仅处理非数学环境部分）
-            text = text.replace(/([\u4e00-\u9fa5])(?=__MATH_ENV_)/g, '$1 ');
-            text = text.replace(/(?<=__MATH_ENV_)([\u4e00-\u9fa5])/g, ' $1');
-            
-            // 在数学表达式中小于号 < 或者 大于号 > 的两端都添加一个空格
-            mathEnvMap.forEach((value, key) => {
-                value = value.replace(/([^ ])(<|>)([^ ])/g, '$1 $2 $3');
-                mathEnvMap.set(key, value);
-            });
-            
-            // 恢复数学环境
-            mathEnvMap.forEach((value, key) => {
-                text = text.replace(key, value);
-            });
+                // 保存$$...$$行间公式
+                text = text.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+                    const envKey = `__MATH_ENV_${envId++}__`;
+                    mathEnvMap.set(envKey, match);
+                    return envKey;
+                });
+
+                // 识别并保存cases环境
+                text = text.replace(/\\begin{cases}([\s\S]*?)\\end{cases}/g, (match) => {
+                    const envKey = `__MATH_ENV_${envId++}__`;
+                    mathEnvMap.set(envKey, match);
+                    return envKey;
+                });
+
+                // 识别并保存array环境
+                text = text.replace(/\\left\\{\\s*\\begin{array}([\s\S]*?)\\end{array}\\s*\\right\\}/g, (match) => {
+                    const envKey = `__MATH_ENV_${envId++}__`;
+                    mathEnvMap.set(envKey, match);
+                    return envKey;
+                });
+
+                // 识别并保存align环境
+                text = text.replace(/\\begin{align}([\s\S]*?)\\end{align}/g, (match) => {
+                    const envKey = `__MATH_ENV_${envId++}__`;
+                    mathEnvMap.set(envKey, match);
+                    return envKey;
+                });
+            }
+
+            if (processExamples) {
+                // 处理例题编号
+                let ltCount = 1;
+                text = text.replace(/<lt>.*?<\/lt>/gi, () => `No.${ltCount++}、`);               
+            }
+
+            if (removeTooltip) {
+                // 删除tooltip内容
+                text = text.replace(/<span class="tooltiptext">[\s\S]*?<\/span>/g, '');
+                text = text.replace(/<span class="tooltip">([\s\S]*?)<\/span>/g, '$1');
+            }
+
+            if (removeQuestion) {
+                // 删除选择题题干内容
+                text = text.replace(/<span class="xzkh">([\s\S]*?)<\/span>/g, '$1');
+                text = text.replace(/<div class="XZXX">([\s\S]*?)<\/div>/g, '$1');
+                text = text.replace(/<div class="XZXX" >([\s\S]*?)<\/div>/g, '$1');
+                text = text.replace(/<div class="XZXX"  >([\s\S]*?)<\/div>/g, '$1');
+            }
+
+            if (adjustSpacing) {
+                // 汉字与公式间距（仅处理非数学环境部分）
+                text = text.replace(/([\u4e00-\u9fa5])(?=__MATH_ENV_)/g, '$1 ');
+                text = text.replace(/(?<=__MATH_ENV_)([\u4e00-\u9fa5])/g, ' $1');
+
+                // 在数学表达式中小于号 < 或者 大于号 > 的两端都添加一个空格
+                if (saveMathEnv) {
+                    mathEnvMap.forEach((value, key) => {
+                        value = value.replace(/([^ ])(<|>)([^ ])/g, '$1 $2 $3');
+                        mathEnvMap.set(key, value);
+                    });
+                }
+            }
+
+            if (saveMathEnv) {
+                // 恢复数学环境
+                mathEnvMap.forEach((value, key) => {
+                    text = text.replace(key, value);
+                });
+            }
 
             return text;
         }
@@ -247,20 +326,21 @@
             const text = document.getElementById('processed').textContent;
             navigator.clipboard.writeText(text).then(() => {
                 alert('内容已复制到剪贴板');
+            }).catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败，请手动复制');
             });
         }
 
         function clearInput() {
             document.getElementById('input').value = '';
-            document.getElementById('processed').textContent = '';
-            document.getElementById('preview').innerHTML = '';
+            processAndRender();
         }
 
-        document.getElementById('input').addEventListener('input', function(e) {
-            const processed = processText(e.target.value);
-            document.getElementById('processed').textContent = processed;
-            renderPreview(processed);
-        });
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initProcessing);
     </script>
 </body>
+
 </html>
+    
